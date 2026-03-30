@@ -1,23 +1,23 @@
-import {beforeEach, describe, expect, jest, test} from '@jest/globals';
+import {beforeEach, describe, expect, vi, test} from 'vitest';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
-import {Context} from '@docker/actions-toolkit/lib/context';
+import {Context} from '@docker/actions-toolkit/lib/context.js';
 
-import * as context from '../src/context';
+import * as context from '../src/context.js';
 
-// prettier-ignore
-const tmpDir = path.join(process.env.TEMP || '/tmp', 'setup-compose-jest');
-const tmpName = path.join(tmpDir, '.tmpname-jest');
+const tmpDir = fs.mkdtempSync(path.join(process.env.TEMP || os.tmpdir(), 'context-'));
+const tmpName = path.join(tmpDir, '.tmpname-vi');
 
-jest.spyOn(Context, 'tmpDir').mockImplementation((): string => {
+vi.spyOn(Context, 'tmpDir').mockImplementation((): string => {
   if (!fs.existsSync(tmpDir)) {
     fs.mkdirSync(tmpDir, {recursive: true});
   }
   return tmpDir;
 });
 
-jest.spyOn(Context, 'tmpName').mockImplementation((): string => {
+vi.spyOn(Context, 'tmpName').mockImplementation((): string => {
   return tmpName;
 });
 
@@ -32,7 +32,7 @@ describe('getInputs', () => {
   });
 
   // prettier-ignore
-  test.each([
+  const cases: [number, Map<string, string>, context.Inputs][] = [
     [
       0,
       new Map<string, string>([
@@ -41,7 +41,7 @@ describe('getInputs', () => {
       {
         version: '',
         cacheBinary: true,
-      } as context.Inputs
+      }
     ],
     [
       1,
@@ -52,18 +52,16 @@ describe('getInputs', () => {
       {
         version: 'v2.32.4',
         cacheBinary: false
-      } as context.Inputs
+      }
     ]
-  ])(
-    '[%d] given %p as inputs, returns %p',
-    async (num: number, inputs: Map<string, string>, expected: context.Inputs) => {
-      inputs.forEach((value: string, name: string) => {
-        setInput(name, value);
-      });
-      const res = await context.getInputs();
-      expect(res).toEqual(expected);
-    }
-  );
+  ];
+  test.each(cases)('[%d] given %o as inputs, returns %o', async (num: number, inputs: Map<string, string>, expected: context.Inputs) => {
+    inputs.forEach((value: string, name: string) => {
+      setInput(name, value);
+    });
+    const res = await context.getInputs();
+    expect(res).toEqual(expected);
+  });
 });
 
 // See: https://github.com/actions/toolkit/blob/master/packages/core/src/core.ts#L67
